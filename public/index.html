@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website A</title>
+    <link rel="stylesheet" href="/css/main.css">
+
+</head>
+<body>
+<h1>Selamat Datang di Website A</h1>
+<p>Ini adalah contoh halaman website yang menggunakan tracking realtime.</p>
+
+<!-- Konten website lainnya -->
+<div id="content">
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris.</p>
+    <!-- More content -->
+</div>
+
+<!-- Easter Egg Animation Container -->
+<div id="easterEgg" class="konami-animation hidden">
+    <div class="konami-text">🎉 Kode Konami Ditemukan! 🎉</div>
+    <img src="https://via.placeholder.com/200" alt="Easter Egg">
+    <div class="konami-text">Selamat! Anda telah menemukan rahasia!</div>
+</div>
+
+<!-- Socket.io client -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+    // Koneksi ke server
+    const socket = io('http://localhost:3000');
+
+    // Fungsi untuk mendapatkan user ID (contoh sederhana)
+    // Dalam aplikasi nyata, gunakan sistem autentikasi yang lebih kuat
+    function getUserId() {
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substring(2, 9);
+            localStorage.setItem('userId', userId);
+        }
+        return userId;
+    }
+
+    // Kirim data user ketika halaman dimuat
+    window.addEventListener('load', () => {
+        socket.emit('userActive', {
+            userId: getUserId(),
+            page: window.location.pathname,
+            title: document.title,
+            referrer: document.referrer,
+            screenWidth: window.innerWidth
+        });
+    });
+
+    // Kirim update aktivitas secara periodik
+    setInterval(() => {
+        socket.emit('activity', {
+            page: window.location.pathname,
+            scrollPosition: window.scrollY
+        });
+    }, 30000); // Update setiap 30 detik
+
+    // Kirim aktivitas saat tab/window di-focus
+    window.addEventListener('focus', () => {
+        socket.emit('activity', {
+            page: window.location.pathname,
+            event: 'focus'
+        });
+    });
+
+    // Kirim notifikasi ketika pengguna akan meninggalkan halaman
+    window.addEventListener('beforeunload', () => {
+        socket.emit('activity', {
+            event: 'leaving'
+        });
+    });
+
+    // Dengarkan pesan surprise/easter egg dari server
+    socket.on('surprise', (data) => {
+        console.log('📢 Pesan dari server:', data);
+        if (data.animation) {
+            showEasterEgg();
+        }
+        if (data.sound) {
+            playSound();
+        }
+    });
+
+    // Fungsi Easter Egg - Kode Konami
+    let konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+    let konamiPosition = 0;
+
+    document.addEventListener('keydown', (e) => {
+        // Cek apakah tombol yang ditekan sesuai dengan kode Konami saat ini
+        if (e.key === konamiCode[konamiPosition]) {
+            konamiPosition++;
+
+            // Jika seluruh kode Konami sudah dimasukkan dengan benar
+            if (konamiPosition === konamiCode.length) {
+                showEasterEgg();
+                playSound();
+                konamiPosition = 0; // Reset posisi
+            }
+        } else {
+            konamiPosition = 0; // Reset jika urutan salah
+        }
+    });
+
+    // Fungsi untuk menampilkan easter egg
+    function showEasterEgg() {
+        const eggElement = document.getElementById('easterEgg');
+        eggElement.classList.remove('hidden');
+
+        // Kirim event ke server bahwa easter egg ditemukan
+        socket.emit('activity', {
+            event: 'easterEggFound',
+            message: 'User menemukan easter egg!'
+        });
+
+        // Hilangkan setelah 5 detik
+        setTimeout(() => {
+            eggElement.classList.add('hidden');
+        }, 5000);
+    }
+
+    // Fungsi untuk memainkan suara
+    function playSound() {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559KExFQp+PwtmMhGjiR1/LMeSwJJHfH8N2QQAsXX7Lq6adSGBxEl+DxvGkhGjWSyfDHdCYHLHy/5dqNNgcaZbfq5ZxGDhJTq+XztWAgGDqY2/TSgDEKIWy67d2SOhEeXKrj3qNQFxxMnuPxu2ohGTiHx+7FdCkMKHi76tmOOQ0fa7np459IDxNQp+TxsF4cHEKW2O+/cCQMJXLH891+LwAZYrPn66lbGRtCk9jvvXMpDSVyy/PeeC0AI2a57OaiTxgdS5nW5rxuJAomb77s4YU2CRpesOnpoE0UFlOj4OyxZCEaNt31grR7LwEXi8znp3wrAiZK4BGFgnQiAB1m1Q95g3gcACJl0w9+gncdACNl0Q9+hHceACJm0g9+g3gdACNm0g9/hHgeACFm0g+AhHkdACFl0w+BhXodACBl0w+ChnocAB9k1A+EiHscAB5j1A+GiXwbABxj1Q+Hin0aABtj1g+Ii34ZABpj1w+KjIAYABhj2A+MjoEXABdj2Q+OkIIWABZi2g+QkoMVABRh2w+SlIQUABNg3A+UlYURABFf3g+WmIYQAA9e3w+YmocPAA5e4BCbnIgNAAxd4hCdnokMAApd5BCfoIoKAAhc5hCho4sJAAZc6BCjpYwHAANb6xCmqI0FAAFa7RCpqo4DAP9Y8BCsrZACAP1W8xCvr5H//gBV9hCysZL9/P5T+RC1tJP7+vxR/RC4tpX5+PpP/xC7uZb29/hNAxC+u5f09fZLBhDBvZnx8/RICRDEwJru8PFGDBDHw5zr7e9DDxDKxp7o6+1BEhDNyaDl6Os/FRDQzKLi5uk8GBHTz6Tf5Oc6GxHW0qXc4uU3HhHZ1afc3+31FUplvVnk8v9dDQ8fiJ0ZQHjBapWJM76FHDk6jphAhK/OlX5r2YYhHRpukJc/ptrrkVKPsRh4UhAnS/JwY49W1fmDPCSyfjYLLdE/qeOLVn5nQYeW87RdHhL1dYRVHbPEI7dZcnzBgcLbnkWQdGJir7JuYsgjhqfG99TKg7mFCmjg5MHPgGoXk5nPgLmIpj1W12Ohg2BveJN5fBCnuVBLUfKqWkNtS9aJt2dwjq92o3ifboKVZqVVjEAmD2YcuVUZSbXsxWadQj/j/9P5qohqEn8Vee+vFKlnTJcnCF4BuEU0CoYYBzinOgJYAVYOsG8BNFPfYYofN8SSNGAybSGte1VtdDEwNHVvfq+RDFUKqtBfXgPAwc60awHl9vM8x2SJAk6LvKsnZ53Thfb7bbRnQ59wHWh6sDZ9efBgQKvH0ycDK4CjLQO7p3xJW3u+aAKrUxXsrwbP0jcLdmByJ6RjFYMpvpKaJXvCWAOuG0jjfkjpP0d1eFtgRFQrZn5PyxPIUGgj4ZFKYXqJcX1QfVZ8x2YfzkwrxyVOcXyYrGhvRZBAJyA9ZiXo7l+m1W4CGr5vIlk0aHNsA9KeQUVZAV2JVz0oSB1SJGEGrkS6+r4QQ6AdrDxkcqN3MmlEbIUB1Ey3nrKUMALYF8WQQJOAEv68SBDtRLTXWDrZMIGz+tL3NnpCDvuEWK7NZA7IWkVg4XlEUbZaDH1MpZ9yHWZY5PmV1Hw/6T9yMrK7RyrB9cQALH6uVYBgI9tOSkUtbgNiHWZhIXnYYVbe4r7UBjOaR7X2AAAA</audio');
+        audio.play();
+    }
+</script>
+</body>
+</html>

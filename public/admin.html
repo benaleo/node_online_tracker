@@ -1,0 +1,374 @@
+<!-- public/admin.html - Admin Panel untuk monitoring (Lengkap) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - User Tracking</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="container">
+    <h1>Admin Panel - User Tracking</h1>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-label">User Aktif</div>
+            <div class="stat-value" id="activeUsers">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Halaman Paling Populer</div>
+            <div class="stat-value" id="popularPage">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Rata-rata Durasi</div>
+            <div class="stat-value" id="avgDuration">0m</div>
+        </div>
+    </div>
+
+    <h2>Daftar User Aktif</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>User ID</th>
+            <th>Halaman</th>
+            <th>Waktu Koneksi</th>
+            <th>Aktivitas Terakhir</th>
+            <th>Detail</th>
+        </tr>
+        </thead>
+        <tbody id="userTableBody">
+        <!-- Data user akan ditampilkan di sini -->
+        </tbody>
+    </table>
+
+    <div class="actions">
+        <button id="refreshBtn">Refresh Data</button>
+        <button id="triggerEasterEgg" class="secondary">Kirim Easter Egg ke Semua User</button>
+        <button id="exportData" class="secondary">Export Data (CSV)</button>
+    </div>
+</div>
+
+<!-- Easter Egg Modal -->
+<div id="easterEggModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>🎉 Easter Egg Ditemukan! 🎉</h2>
+        <p>Hai Admin! Anda menemukan Easter Egg tersembunyi di panel admin!</p>
+        <p>Pesan rahasia: "Terima kasih atas kerja keras Anda menjaga website tetap berjalan dengan baik!"</p>
+        <button id="closeModal">Tutup</button>
+    </div>
+</div>
+
+<!-- Tombol rahasia tersembunyi -->
+<button id="secretButton" class="secret-button" title="Tombol Rahasia"></button>
+<div id="easterTooltip" class="easter-tooltip">Coba klik 5x</div>
+
+<!-- Socket.io Client -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+    // Koneksi ke server
+    const socket = io();
+
+    // Cache elemen DOM
+    const activeUsersElement = document.getElementById('activeUsers');
+    const popularPageElement = document.getElementById('popularPage');
+    const avgDurationElement = document.getElementById('avgDuration');
+    const userTableBody = document.getElementById('userTableBody');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const triggerEasterEggBtn = document.getElementById('triggerEasterEgg');
+    const exportDataBtn = document.getElementById('exportData');
+    const secretButton = document.getElementById('secretButton');
+    const easterEggModal = document.getElementById('easterEggModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const closeModalX = document.querySelector('.close');
+    const easterTooltip = document.getElementById('easterTooltip');
+
+    // Dapatkan data user saat halaman dimuat
+    window.addEventListener('load', fetchUserData);
+
+    // Dengarkan update jumlah user secara realtime
+    socket.on('userCountUpdate', (data) => {
+        updateUserStats(data);
+        updateUserTable(data.users);
+    });
+
+    // Fungsi untuk mengambil data user dari API
+    function fetchUserData() {
+        fetch('/api/active-users')
+            .then(response => response.json())
+            .then(data => {
+                updateUserStats(data);
+                updateUserTable(data.users);
+            })
+            .catch(error => console.error('Error fetching user data:', error));
+    }
+
+    // Update statistik user
+    function updateUserStats(data) {
+        activeUsersElement.textContent = data.count;
+
+        // Hitung halaman paling populer
+        if (data.users && data.users.length > 0) {
+            const pageMap = new Map();
+            data.users.forEach(user => {
+                const page = user.page || '/';
+                pageMap.set(page, (pageMap.get(page) || 0) + 1);
+            });
+
+            let maxCount = 0;
+            let popularPage = '/';
+            pageMap.forEach((count, page) => {
+                if (count > maxCount) {
+                    maxCount = count;
+                    popularPage = page;
+                }
+            });
+
+            popularPageElement.textContent = popularPage;
+
+            // Hitung rata-rata durasi
+            const now = new Date();
+            let totalMinutes = 0;
+
+            data.users.forEach(user => {
+                const connectedAt = new Date(user.connectedAt);
+                const diffMs = now - connectedAt;
+                const diffMins = Math.floor(diffMs / 60000);
+                totalMinutes += diffMins;
+            });
+
+            const avgMins = data.users.length > 0 ? Math.round(totalMinutes / data.users.length) : 0;
+            avgDurationElement.textContent = `${avgMins}m`;
+        } else {
+            popularPageElement.textContent = '-';
+            avgDurationElement.textContent = '0m';
+        }
+    }
+
+    // Update tabel user
+    function updateUserTable(users) {
+        userTableBody.innerHTML = '';
+
+        if (!users || users.length === 0) {
+            const row = document.createElement('tr');
+            row.innerHTML = '<td colspan="5" style="text-align: center;">Tidak ada user aktif</td>';
+            userTableBody.appendChild(row);
+            return;
+        }
+
+        users.forEach(user => {
+            const row = document.createElement('tr');
+
+            const connectedAt = new Date(user.connectedAt);
+            const lastActivity = new Date(user.lastActivity);
+
+            row.innerHTML = `
+          <td>${user.userId || 'Anonymous'}</td>
+          <td>${user.page || '/'}</td>
+          <td>${formatDate(connectedAt)}</td>
+          <td>${formatDate(lastActivity)}</td>
+          <td>
+            <button class="view-details" data-userid="${user.userId}">Detail</button>
+          </td>
+        `;
+
+            userTableBody.appendChild(row);
+        });
+
+        // Tambahkan event listener untuk tombol detail
+        document.querySelectorAll('.view-details').forEach(button => {
+            button.addEventListener('click', () => {
+                alert(`Detail untuk user ${button.dataset.userid} akan ditampilkan di sini.`);
+            });
+        });
+    }
+
+    // Format tanggal untuk tampilan
+    function formatDate(date) {
+        return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+    }
+
+    // Event listener untuk tombol refresh
+    refreshBtn.addEventListener('click', fetchUserData);
+
+    // Event listener untuk tombol trigger easter egg
+    triggerEasterEggBtn.addEventListener('click', () => {
+        fetch('/api/easter-egg')
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+            })
+            .catch(error => console.error('Error triggering easter egg:', error));
+    });
+
+    // Event listener untuk tombol export data
+    exportDataBtn.addEventListener('click', () => {
+        fetch('/api/active-users')
+            .then(response => response.json())
+            .then(data => {
+                // Konversi data ke CSV
+                let csv = 'User ID,Page,Connected At,Last Activity\n';
+                data.users.forEach(user => {
+                    csv += `"${user.userId}","${user.page}","${new Date(user.connectedAt)}","${new Date(user.lastActivity)}"\n`;
+                });
+
+                // Buat link download
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'active_users.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })
+            .catch(error => console.error('Error exporting data:', error));
+    });
+
+    // Easter Egg Admin - Konami Code
+    let konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+    let konamiPosition = 0;
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === konamiCode[konamiPosition]) {
+            konamiPosition++;
+
+            if (konamiPosition === konamiCode.length) {
+                showAdminEasterEgg();
+                konamiPosition = 0;
+            }
+        } else {
+            konamiPosition = 0;
+        }
+    });
+
+    // Secret button easter egg
+    let secretClickCount = 0;
+    secretButton.addEventListener('click', () => {
+        secretClickCount++;
+
+        if (secretClickCount === 5) {
+            showAdminEasterEgg();
+            secretClickCount = 0;
+        }
+    });
+
+    // Munculkan tooltip saat mouse over tombol rahasia
+    secretButton.addEventListener('mouseover', () => {
+        easterTooltip.style.opacity = '0.8';
+    });
+
+    secretButton.addEventListener('mouseout', () => {
+        easterTooltip.style.opacity = '0';
+    });
+
+    // Fungsi untuk menampilkan easter egg admin
+    function showAdminEasterEgg() {
+        easterEggModal.style.display = 'flex';
+        createConfetti(100);
+        playSound();
+
+        // Log rahasia di console
+        console.log('%c 🎉 Easter Egg Ditemukan! 🎉', 'background: #ff0000; color: white; font-size: 20px; padding: 10px;');
+        console.log('%c Pesan rahasia untuk developer: "Kode ini memiliki satu easter egg tersembunyi lagi... coba cari sendiri ya!"', 'color: blue; font-size: 14px;');
+    }
+
+    // Tutup modal easter egg
+    closeModalBtn.addEventListener('click', () => {
+        easterEggModal.style.display = 'none';
+    });
+
+    closeModalX.addEventListener('click', () => {
+        easterEggModal.style.display = 'none';
+    });
+
+    // Buat konfeti
+    function createConfetti(count) {
+        const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+
+        for (let i = 0; i < count; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.left = `${Math.random() * 100}vw`;
+            confetti.style.animationDuration = `${2 + Math.random() * 4}s`;
+            document.body.appendChild(confetti);
+
+            // Hapus konfeti setelah animasi selesai
+            setTimeout(() => {
+                confetti.remove();
+            }, 6000);
+        }
+    }
+
+    // Memainkan suara
+    function playSound() {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559KExFQp+PwtmMhGjiR1/LMeSwJJHfH8N2QQAsXX7Lq6adSGBxEl+DxvGkhGjWSyfDHdCYHLHy/5dqNNgcaZbfq5ZxGDhJTq+XztWAgGDqY2/TSgDEKIWy67d2SOhEeXKrj3qNQFxxMnuPxu2ohGTiHx+7FdCkMKHi76tmOOQ0fa7np459IDxNQp+TxsF4cHEKW2O+/cCQMJXLH891+LwAZYrPn66lbGRtCk9jvvXMpDSVyy/PeeC0AI2a57OaiTxgdS5nW5rxuJAomb77s4YU2CRpesOnpoE0UFlOj4OyxZCEaNt31grR7LwEXi8znp3wrAiZK4BGFgnQiAB1m1Q95g3gcACJl0w9+gncdACNl0Q9+hHceACJm0g9+g3gdACNm0g9/hHgeACFm0g+AhHkdACFl0w+BhXodACBl0w+ChnocAB9k1A+EiHscAB5j1A+GiXwbABxj1Q+Hin0aABtj1g+Ii34ZABpj1w+KjIAYABhj2A+MjoEXABdj2Q+OkIIWABZi2g+QkoMVABRh2w+SlIQUABNg3A+UlYURABFf3g+WmIYQAA9e3w+YmocPAA5e4BCbnIgNAAxd4hCdnokMAApd5BCfoIoKAAhc5hCho4sJAAZc6BCjpYwHAANb6xCmqI0FAAFa7RCpqo4DAP9Y8BCsrZACAP1W8xCvr5H//gBV9hCysZL9/P5T+RC1tJP7+vxR/RC4tpX5+PpP/xC7uZb29/hNAxC+u5f09fZLBhDBvZnx8/RICRDEwJru8PFGDBDHw5zr7e9DDxDKxp7o6+1BEhDNyaDl6Os/FRDQzKLi5uk8GBHTz6Tf5Oc6GxHW0qXc4uU3HhHZ1afc3+31FUplvVnk8v9dDQ8fiJ0ZQHjBapWJM76FHDk6jphAhK/OlX5r2YYhHRpukJc/ptrrkVKPsRh4UhAnS/JwY49W1fmDPCSyfjYLLdE/qeOLVn5nQYeW87RdHhL1dYRVHbPEI7dZcnzBgcLbnkWQdGJir7JuYsgjhqfG99TKg7mFCmjg5MHPgGoXk5nPgLmIpj1W12Ohg2BveJN5fBCnuVBLUfKqWkNtS9aJt2dwjq92o3ifboKVZqVVjEAmD2YcuVUZSbXsxWadQj/j/9P5qohqEn8Vee+vFKlnTJcnCF4BuEU0CoYYBzinOgJYAVYOsG8BNFPfYYofN8SSNGAybSGte1VtdDEwNHVvfq+RDFUKqtBfXgPAwc60awHl9vM8x2SJAk6LvKsnZ53Thfb7bbRnQ59wHWh6sDZ9efBgQKvH0ycDK4CjLQO7p3xJW3u+aAKrUxXsrwbP0jcLdmByJ6RjFYMpvpKaJXvCWAOuG0jjfkjpP0d1eFtgRFQrZn5PyxPIUGgj4ZFKYXqJcX1QfVZ8x2YfzkwrxyVOcXyYrGhvRZBAJyA9ZiXo7l+m1W4CGr5vIlk0aHNsA9KeQUVZAV2JVz0oSB1SJGEGrkS6+r4QQ6AdrDxkcqN3MmlEbIUB1Ey3nrKUMALYF8WQQJOAEv68SBDtRLTXWDrZMIGz+tL3NnpCDvuEWK7NZA7IWkVg4XlEUbZaDH1MpZ9yHWZY5PmV1Hw/6T9yMrK7RyrB9cQALH6uVYBgI9tOSkUtbgNiHWZhIXnYYVbe4r7UBjOaR7X2AAAA');
+        audio.play();
+    }
+
+    // Easter Egg Super Tersembunyi - Ketik "admin123" pada keyboard
+    let secretCode = "admin123";
+    let secretCodePosition = 0;
+
+    document.addEventListener('keypress', (e) => {
+        if (e.key === secretCode[secretCodePosition]) {
+            secretCodePosition++;
+
+            if (secretCodePosition === secretCode.length) {
+                revealSuperSecretEasterEgg();
+                secretCodePosition = 0;
+            }
+        } else {
+            secretCodePosition = 0;
+        }
+    });
+
+    // Fungsi untuk easter egg super tersembunyi
+    function revealSuperSecretEasterEgg() {
+        // Pesan rahasia di console dengan style spesial
+        console.log('%c 🔒 SUPER SECRET EASTER EGG UNLOCKED! 🔒', 'background: #000; color: #0f0; font-size: 24px; padding: 15px; text-shadow: 0 0 5px #0f0;');
+        console.log('%c Selamat! Anda menemukan easter egg yang super tersembunyi!', 'color: #0f0; font-size: 18px;');
+        console.log('%c Pesan rahasia: "Selamat Hari Programmer! Kode berikut ini akan membuka fitur tersembunyi di sistem."', 'color: #0f0; font-size: 16px;');
+        console.log('%c Code: XJ7-YT2-LM9-OPQ', 'background: #333; color: #ff0; font-size: 20px; padding: 10px; font-family: monospace;');
+
+        // Ciptakan efek hacking di halaman
+        document.body.style.transition = 'all 0.5s';
+        document.body.style.backgroundColor = '#000';
+
+        setTimeout(() => {
+            document.body.style.backgroundColor = '#f5f5f5';
+            createSpecialConfetti(200);
+        }, 500);
+    }
+
+    // Efek konfeti spesial untuk easter egg super tersembunyi
+    function createSpecialConfetti(count) {
+        const specialColors = ['#00ff00', '#ffff00', '#00ffff', '#ff00ff'];
+
+        for (let i = 0; i < count; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.backgroundColor = specialColors[Math.floor(Math.random() * specialColors.length)];
+                confetti.style.width = `${5 + Math.random() * 10}px`;
+                confetti.style.height = `${5 + Math.random() * 10}px`;
+                confetti.style.left = `${Math.random() * 100}vw`;
+                confetti.style.animationDuration = `${3 + Math.random() * 5}s`;
+                document.body.appendChild(confetti);
+
+                setTimeout(() => {
+                    confetti.remove();
+                }, 8000);
+            }, i * 20);
+        }
+    }
+
+    // Pesan tersembunyi di console saat halaman dimuat
+    console.log('%c 🧩 Ada beberapa easter egg tersembunyi di halaman ini. Bisakah Anda menemukan semuanya?', 'color: #f00; font-style: italic; font-size: 14px;');
+    console.log('%c Petunjuk: Coba ingat game lama, klik tersembunyi, dan keyword admin.', 'color: #999; font-size: 12px;');
+</script>
+</body>
+</html>
