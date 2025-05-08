@@ -36,7 +36,11 @@ const activeDomains = {};
 
 // Helper function to generate a unique user ID based on IP and userAgent
 function generateUserId(socket) {
-    const ip = socket.handshake.address;
+    // Get the real IP address from request headers
+    const ip = socket.handshake.headers['x-forwarded-for'] || 
+              socket.handshake.headers['x-real-ip'] || 
+              socket.handshake.address;
+    console.log('Real IP:', ip);
     const userAgent = socket.handshake.query.userAgent || 'unknown';
     return `${ip}-${userAgent.substring(0, 20)}`; // Using first part of userAgent to avoid too long IDs
 }

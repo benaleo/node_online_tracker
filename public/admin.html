@@ -116,6 +116,7 @@
         fetch('/api/active-users')
             .then(response => response.json())
             .then(data => {
+                console.log('Received user data:', data);
                 updateUserStats(data);
                 processAndUpdateTable(data);
                 updateDomainFilter(data);
