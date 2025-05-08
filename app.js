@@ -1,8 +1,11 @@
 // server.js - Server Express dan WebSocket
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+import express from 'express';
+import http from 'http';
+import {Server} from 'socket.io';
+import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Membuat aplikasi Express
 const app = express();
@@ -17,16 +20,38 @@ const io = new Server(server, {
 });
 
 // Middleware untuk static files
-app.use(express.static(path.join(__dirname, 'public')));
+const url = new URL(import.meta.url);
+let pathName = url.pathname;
+
+if (process.platform === 'win32' && pathName.startsWith('/')) {
+    pathName = pathName.substring(1);
+}
+
+const publicPath = path.join(path.dirname(pathName), 'public');
+app.use(express.static(publicPath));
 
 // Menyimpan koneksi user yang aktif
 const activeUsers = new Map();
+const activeDomains = {};
+
+function getActiveStats() {
+    return {
+        domains: activeDomains,
+        totalUsers: Object.values(activeDomains).reduce((sum, domain) => sum + domain.users, 0)
+    };
+}
+
 
 // Validasi license
 function validateLicense(license, domain) {
+    if (process.env.NODE_ENV === 'development') {
+        return true; // Izinkan semua untuk development
+    }
+
+    // Untuk production
     const validLicenses = {
-        'abc': ['kanban-simple-ashy.vercel.app', 'localhost:5173', 'localhost'],
-        'premium': ['*'] // Wildcard untuk semua domain
+        'abc': ['kanban-simple-ashy.vercel.app', 'localhost:5173', 'localhost:5000'],
+        'premium': ['*']
     };
 
     if (!validLicenses[license]) return false;
@@ -70,7 +95,7 @@ io.on('connection', (socket) => {
         activeDomains[domain].users++;
 
         // Broadcast updated stats
-        io.emit('stats_update', getActiveStats());
+        io.emit('userCountUpdate', getActiveStats());
     });
 
     // User leaving
@@ -92,26 +117,27 @@ io.on('connection', (socket) => {
         }
 
         // Broadcast updated stats
-        io.emit('stats_update', getActiveStats());
+        io.emit('userCountUpdate', getActiveStats());
     });
 });
 
 // Endpoint API untuk mendapatkan jumlah user aktif
 app.get('/api/active-users', (req, res) => {
+    const stats = getActiveStats();
     res.json({
-        count: activeUsers.size,
-        users: Array.from(activeUsers.values())
+        count: stats.totalUsers,
+        domains: stats.domains
     });
 });
 
 // Route untuk admin panel
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+    res.sendFile(path.join(publicPath, 'admin.html'));
 });
 
 // Route untuk halaman utama
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(publicPath, 'index.html'));
 });
 
 // EASTER EGG: Ketika endpoint ini diakses, semua user akan menerima surprise
@@ -125,7 +151,7 @@ app.get('/api/easter-egg', (req, res) => {
 });
 
 // Port server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
     console.log(`Server berjalan di port ${PORT}`);
     console.log(`Admin panel: http://localhost:${PORT}/admin`);
