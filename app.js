@@ -4,6 +4,8 @@ import http from 'http';
 import {Server} from 'socket.io';
 import path from 'path';
 import dotenv from 'dotenv';
+import './database.js';
+import PendingMessage from './models/PendingMessage.js';
 
 dotenv.config();
 
@@ -78,7 +80,7 @@ function validateLicense(license, domain) {
 }
 
 // Socket.IO connection handler
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     const domain = socket.handshake.query.domain;
     const license = socket.handshake.query.license;
     const path = socket.handshake.query.path || '/';
@@ -237,13 +239,61 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(publicPath, 'index.html'));
 });
 
-// EASTER EGG: Ketika endpoint ini diakses, semua user akan menerima surprise
-app.get('/api/easter-egg', (req, res) => {
-    io.emit('surprise', {
+// Helper function to save pending message
+async function savePendingMessage(userId, message) {
+    try {
+        await PendingMessage.create({
+            userId,
+            message
+        });
+        return true;
+    } catch (error) {
+        console.error('Error saving pending message:', error);
+        return false;
+    }
+}
+
+// Helper function to get and mark pending messages as sent
+async function getAndMarkPendingMessages(userId) {
+    try {
+        const pendingMessages = await PendingMessage.findAll({
+            where: {
+                userId,
+                sentAt: null
+            }
+        });
+
+        // Mark messages as sent
+        const now = new Date();
+        await Promise.all(pendingMessages.map(msg => 
+            msg.update({ sentAt: now })
+        ));
+
+        return pendingMessages;
+    } catch (error) {
+        console.error('Error getting pending messages:', error);
+        return [];
+    }
+}
+
+app.get('/api/easter-egg', async (req, res) => {
+    const message = {
         message: '🎉 Surprise! Telah ditemukan easter egg!',
         animation: true,
         sound: true
-    });
+    };
+
+    // Emit to all connected users
+    io.emit('surprise', message);
+
+    // Save pending messages for all active users
+    const activeUsersArray = Array.from(activeUsers.values());
+    const pendingPromises = activeUsersArray.map(user => 
+        savePendingMessage(user.userId, message)
+    );
+    
+    await Promise.all(pendingPromises);
+    
     res.json({ success: true, message: 'Easter egg diaktifkan untuk semua user!' });
 });
 
