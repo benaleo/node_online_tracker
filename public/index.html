@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Website A</title>
     <link rel="stylesheet" href="/css/main.css">
-
+    <!-- Include tracker script with domain and license parameters -->
+    <script src="/tracker.js?domain=localhost:5000&lisence=abc" async></script>
 </head>
 <body>
 <h1>Selamat Datang di Website A</h1>
@@ -19,7 +20,7 @@
 
 <!-- Easter Egg Animation Container -->
 <div id="easterEgg" class="konami-animation hidden">
-    <div class="konami-text">🎉 Kode Konami Ditemukan! 🎉</div>
+    <div class="konami-text"> Kode Konami Ditemukan! </div>
     <img src="https://via.placeholder.com/200" alt="Easter Egg">
     <div class="konami-text">Selamat! Anda telah menemukan rahasia!</div>
 </div>
@@ -27,8 +28,8 @@
 <!-- Socket.io client -->
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-    // Koneksi ke server
-    const socket = io('https://tracker.epicgoods.my.id');
+    // Koneksi ke server - use local for development
+    const socket = io('http://localhost:5000');
 
     // Fungsi untuk mendapatkan user ID (contoh sederhana)
     // Dalam aplikasi nyata, gunakan sistem autentikasi yang lebih kuat

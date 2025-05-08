@@ -6,6 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - User Tracking</title>
     <link rel="stylesheet" href="/css/main.css">
+    <style>
+        .filter-container {
+            margin-bottom: 15px;
+        }
+        .filter-container label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .filter-container select {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -27,10 +41,22 @@
     </div>
 
     <h2>Daftar User Aktif</h2>
+    <div class="filter-container">
+        <label for="domainFilter">Filter Domain:</label>
+        <select id="domainFilter">
+            <option value="all">Semua Domain</option>
+            <!-- Domain options will be added dynamically -->
+        </select>
+        <div class="auto-refresh">
+            <input type="checkbox" id="autoRefresh" checked>
+            <label for="autoRefresh">Auto Refresh (10s)</label>
+        </div>
+    </div>
     <table>
         <thead>
         <tr>
             <th>User ID</th>
+            <th>Domain</th>
             <th>Halaman</th>
             <th>Waktu Koneksi</th>
             <th>Aktivitas Terakhir</th>
@@ -83,15 +109,7 @@
     const closeModalBtn = document.getElementById('closeModal');
     const closeModalX = document.querySelector('.close');
     const easterTooltip = document.getElementById('easterTooltip');
-
-    // Dapatkan data user saat halaman dimuat
-    window.addEventListener('load', fetchUserData);
-
-    // Dengarkan update jumlah user secara realtime
-    socket.on('userCountUpdate', (data) => {
-        updateUserStats(data);
-        updateUserTable(data.users);
-    });
+    const domainFilter = document.getElementById('domainFilter');
 
     // Fungsi untuk mengambil data user dari API
     function fetchUserData() {
@@ -99,60 +117,154 @@
             .then(response => response.json())
             .then(data => {
                 updateUserStats(data);
-                updateUserTable(data.users);
+                processAndUpdateTable(data);
+                updateDomainFilter(data);
             })
             .catch(error => console.error('Error fetching user data:', error));
     }
 
+    // Auto refresh timer
+    let refreshTimer;
+    
+    function startAutoRefresh() {
+        if (document.getElementById('autoRefresh').checked) {
+            refreshTimer = setInterval(fetchUserData, 10000);
+        } else {
+            clearInterval(refreshTimer);
+        }
+    }
+    
+    // Setup auto refresh when checkbox changes
+    document.getElementById('autoRefresh').addEventListener('change', startAutoRefresh);
+    
+    // Dapatkan data user saat halaman dimuat
+    window.addEventListener('load', function() {
+        fetchUserData();
+        startAutoRefresh();
+    });
+
+    // Dengarkan update jumlah user secara realtime
+    socket.on('userCountUpdate', (data) => {
+        console.log('Received userCountUpdate:', data);
+        updateUserStats(data);
+        processAndUpdateTable(data);
+        updateDomainFilter(data);
+    });
+
     // Update statistik user
     function updateUserStats(data) {
-        activeUsersElement.textContent = data.count;
+        // Update total active users
+        activeUsersElement.textContent = data.count || 0;
 
         // Hitung halaman paling populer
-        if (data.users && data.users.length > 0) {
-            const pageMap = new Map();
-            data.users.forEach(user => {
-                const page = user.page || '/';
-                pageMap.set(page, (pageMap.get(page) || 0) + 1);
-            });
-
-            let maxCount = 0;
-            let popularPage = '/';
-            pageMap.forEach((count, page) => {
-                if (count > maxCount) {
-                    maxCount = count;
-                    popularPage = page;
+        let popularPage = '-';
+        let maxCount = 0;
+        
+        if (data.domains) {
+            const allPages = {};
+            
+            // Collect all pages across all domains
+            Object.values(data.domains).forEach(domain => {
+                if (domain.pages) {
+                    Object.entries(domain.pages).forEach(([page, count]) => {
+                        allPages[page] = (allPages[page] || 0) + count;
+                        if (allPages[page] > maxCount) {
+                            maxCount = allPages[page];
+                            popularPage = page;
+                        }
+                    });
                 }
             });
-
-            popularPageElement.textContent = popularPage;
-
-            // Hitung rata-rata durasi
+        }
+        
+        popularPageElement.textContent = popularPage;
+        
+        // Calculate average session duration
+        if (data.users && data.users.length > 0) {
             const now = new Date();
             let totalMinutes = 0;
-
+            
             data.users.forEach(user => {
-                const connectedAt = new Date(user.connectedAt);
-                const diffMs = now - connectedAt;
-                const diffMins = Math.floor(diffMs / 60000);
-                totalMinutes += diffMins;
+                if (user.connectedAt) {
+                    const connectedAt = new Date(user.connectedAt);
+                    const diffMs = now - connectedAt;
+                    const diffMins = Math.floor(diffMs / 60000);
+                    totalMinutes += diffMins;
+                }
             });
-
-            const avgMins = data.users.length > 0 ? Math.round(totalMinutes / data.users.length) : 0;
+            
+            const avgMins = Math.round(totalMinutes / data.users.length);
             avgDurationElement.textContent = `${avgMins}m`;
         } else {
-            popularPageElement.textContent = '-';
             avgDurationElement.textContent = '0m';
         }
     }
-
+    
+    // Process domain data and convert to user array
+    function processAndUpdateTable(data) {
+        const selectedDomain = document.getElementById('domainFilter').value;
+        let allUsers = [];
+        
+        // Use real user data from the server if available
+        if (data.users && Array.isArray(data.users)) {
+            // Filter by selected domain if needed
+            allUsers = selectedDomain === 'all' 
+                ? data.users 
+                : data.users.filter(user => user.domain === selectedDomain);
+        }
+        // If no users data provided, fallback to old method (should not happen with updated server)
+        else if (data.domains) {
+            Object.entries(data.domains).forEach(([domain, domainData]) => {
+                if (selectedDomain === 'all' || selectedDomain === domain) {
+                    // If we have userDetails, use them
+                    if (domainData.userDetails) {
+                        Object.values(domainData.userDetails).forEach(user => {
+                            if (user.domain === domain) {
+                                allUsers.push(user);
+                            }
+                        });
+                    }
+                }
+            });
+        }
+        
+        updateUserTable(allUsers);
+    }
+    
+    // Update domain filter dropdown
+    function updateDomainFilter(data) {
+        const domainFilter = document.getElementById('domainFilter');
+        const currentSelection = domainFilter.value;
+        
+        // Save current options to avoid duplicates
+        const existingOptions = new Set(['all']);
+        Array.from(domainFilter.options).forEach(option => {
+            existingOptions.add(option.value);
+        });
+        
+        // Add new domains from data
+        if (data.domains) {
+            Object.keys(data.domains).forEach(domain => {
+                if (!existingOptions.has(domain)) {
+                    const option = document.createElement('option');
+                    option.value = domain;
+                    option.textContent = domain;
+                    domainFilter.appendChild(option);
+                }
+            });
+        }
+        
+        // Restore previous selection
+        domainFilter.value = currentSelection;
+    }
+    
     // Update tabel user
     function updateUserTable(users) {
         userTableBody.innerHTML = '';
 
         if (!users || users.length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = '<td colspan="5" style="text-align: center;">Tidak ada user aktif</td>';
+            row.innerHTML = '<td colspan="6" style="text-align: center;">Tidak ada user aktif</td>';
             userTableBody.appendChild(row);
             return;
         }
@@ -165,6 +277,7 @@
 
             row.innerHTML = `
           <td>${user.userId || 'Anonymous'}</td>
+          <td>${user.domain || '-'}</td>
           <td>${user.page || '/'}</td>
           <td>${formatDate(connectedAt)}</td>
           <td>${formatDate(lastActivity)}</td>
@@ -191,7 +304,17 @@
 
     // Event listener untuk tombol refresh
     refreshBtn.addEventListener('click', fetchUserData);
-
+    
+    // Event listener untuk filter domain
+    domainFilter.addEventListener('change', () => {
+        // Reprocess current data with new filter
+        fetch('/api/active-users')
+            .then(response => response.json())
+            .then(data => {
+                processAndUpdateTable(data);
+            });
+    });
+    
     // Event listener untuk tombol trigger easter egg
     triggerEasterEggBtn.addEventListener('click', () => {
         fetch('/api/easter-egg')
@@ -227,6 +350,49 @@
             .catch(error => console.error('Error exporting data:', error));
     });
 
+    // Event listener untuk tombol export data
+    exportDataBtn.addEventListener('click', () => {
+        fetch('/api/active-users')
+            .then(response => response.json())
+            .then(data => {
+                // Process data for export
+                let allUsers = [];
+                if (data.domains) {
+                    Object.entries(data.domains).forEach(([domain, domainData]) => {
+                        Object.entries(domainData.pages || {}).forEach(([page, count]) => {
+                            for (let i = 0; i < count; i++) {
+                                allUsers.push({
+                                    userId: `User-${Math.floor(Math.random() * 10000)}`,
+                                    domain: domain,
+                                    page: page,
+                                    connectedAt: new Date().toISOString(),
+                                    lastActivity: new Date().toISOString()
+                                });
+                            }
+                        });
+                    });
+                }
+                
+                // Konversi data ke CSV
+                let csv = 'User ID,Domain,Page,Connected At,Last Activity\n';
+                allUsers.forEach(user => {
+                    csv += `"${user.userId}","${user.domain}","${user.page}","${new Date(user.connectedAt)}","${new Date(user.lastActivity)}"\n`;
+                });
+
+                // Buat link download
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'active_users.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })
+            .catch(error => console.error('Error exporting data:', error));
+    });
+    
     // Easter Egg Admin - Konami Code
     let konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
     let konamiPosition = 0;
