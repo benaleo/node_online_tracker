@@ -22,59 +22,77 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Menyimpan koneksi user yang aktif
 const activeUsers = new Map();
 
-// Konfigurasi Socket.io
+// Validasi license
+function validateLicense(license, domain) {
+    const validLicenses = {
+        'abc': ['kanban-simple-ashy.vercel.app', 'localhost:5173', 'localhost'],
+        'premium': ['*'] // Wildcard untuk semua domain
+    };
+
+    if (!validLicenses[license]) return false;
+    return validLicenses[license].includes('*') || validLicenses[license].includes(domain);
+}
+
+// Socket.IO connection handler
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
+    const domain = socket.handshake.query.domain;
+    const license = socket.handshake.query.license;
 
-    // Ketika user terhubung, tambahkan ke daftar aktif
-    socket.on('userActive', (userData) => {
-        const userId = userData.userId || socket.id;
-        const page = userData.page || 'unknown';
+    // Validate license
+    const isValid = validateLicense(license, domain);
 
-        activeUsers.set(socket.id, {
-            userId: userId,
-            page: page,
-            connectedAt: new Date(),
-            lastActivity: new Date(),
-            ...userData
-        });
+    if (!isValid) {
+        console.log(`Invalid license: ${license} for domain: ${domain}`);
+        socket.emit('license_error', { message: 'Invalid license for this domain' });
+        return;
+    }
 
-        // Broadcast ke admin panel bahwa jumlah user berubah
-        io.emit('userCountUpdate', {
-            count: activeUsers.size,
-            users: Array.from(activeUsers.values())
-        });
-    });
+    console.log(`New connection from domain: ${domain} with license: ${license}`);
 
-    // Update saat user berinteraksi atau pindah halaman
-    socket.on('activity', (data) => {
-        if (activeUsers.has(socket.id)) {
-            const user = activeUsers.get(socket.id);
-            activeUsers.set(socket.id, {
-                ...user,
-                lastActivity: new Date(),
-                page: data.page || user.page,
-                ...data
-            });
+    // Add domain to active tracking if needed
+    if (!activeDomains[domain]) {
+        activeDomains[domain] = {
+            users: 0,
+            pages: {}
+        };
+    }
 
-            // Broadcast update aktivitas
-            io.emit('userCountUpdate', {
-                count: activeUsers.size,
-                users: Array.from(activeUsers.values())
-            });
+    // Pageview tracking
+    socket.on('pageview', (data) => {
+        // Process pageview with domain and license info
+        const { path } = data;
+
+        // Increment users on this page for this domain
+        if (!activeDomains[domain].pages[path]) {
+            activeDomains[domain].pages[path] = 0;
         }
+        activeDomains[domain].pages[path]++;
+        activeDomains[domain].users++;
+
+        // Broadcast updated stats
+        io.emit('stats_update', getActiveStats());
     });
 
-    // Saat user disconnect
-    socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`);
-        activeUsers.delete(socket.id);
+    // User leaving
+    socket.on('leave', (data) => {
+        const { path } = data;
 
-        // Broadcast bahwa jumlah user berubah
-        io.emit('userCountUpdate', {
-            count: activeUsers.size,
-            users: Array.from(activeUsers.values())
-        });
+        if (activeDomains[domain] && activeDomains[domain].pages[path]) {
+            activeDomains[domain].pages[path]--;
+            activeDomains[domain].users--;
+
+            // Clean up if needed
+            if (activeDomains[domain].pages[path] <= 0) {
+                delete activeDomains[domain].pages[path];
+            }
+
+            if (activeDomains[domain].users <= 0) {
+                delete activeDomains[domain];
+            }
+        }
+
+        // Broadcast updated stats
+        io.emit('stats_update', getActiveStats());
     });
 });
 
