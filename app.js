@@ -42,7 +42,15 @@ function generateUserId(socket) {
               socket.handshake.address;
     console.log('Real IP:', ip);
     const userAgent = socket.handshake.query.userAgent || 'unknown';
-    return `${ip}-${userAgent.substring(0, 20)}`; // Using first part of userAgent to avoid too long IDs
+    const userId = `${ip}`; // Using first part of userAgent to avoid too long IDs
+    console.log('User ID:', userId);
+    return userId;
+}
+
+// Helper function to generate user Agent
+function generateUserAgent(socket) {
+    const userAgent = socket.handshake.query.userAgent || 'unknown';
+    return userAgent;
 }
 
 function getActiveStats() {
@@ -91,6 +99,7 @@ io.on('connection', (socket) => {
 
     // Generate a unique user ID based on IP and user agent
     const userId = generateUserId(socket);
+    const userAgent = generateUserAgent(socket);
     const connectionTime = new Date().toISOString();
     
     console.log(`New connection from domain: ${domain} with license: ${license}, path: ${path}, userId: ${userId}`);
@@ -109,11 +118,12 @@ io.on('connection', (socket) => {
     if (!activeDomains[domain].userDetails[userId]) {
         // Only set connection time for new users
         activeDomains[domain].userDetails[userId] = {
-            userId: userId.substring(0, 10), // Truncate userId for display
+            userId: userId, // Truncate userId for display
             domain: domain,
             page: path,
             connectedAt: connectionTime,
-            lastActivity: connectionTime
+            lastActivity: connectionTime,
+            userAgent: userAgent
         };
         
         activeDomains[domain].userIds.add(userId);
