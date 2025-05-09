@@ -35,5 +35,17 @@ export default function defineUsers(sequelize) {
         timestamps: false
     });
 
+    // Add static method for validation
+    Users.validateLicense = async function(license, domain) {
+        const user = await Users.findOne({
+            where: {
+                license,
+                domain
+            }
+        });
+
+        return !!user;
+    };
+
     return Users;
 }
