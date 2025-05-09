@@ -15,4 +15,36 @@ const sequelize = new Sequelize({
     }
 });
 
+// Initialize models
+const Users = (await import('../models/Users.js')).default(sequelize);
+const PendingMessage = (await import('../models/PendingMessage.js')).default(sequelize);
+
+// Define associations
+Users.hasMany(PendingMessage, {
+    foreignKey: 'userId',
+    as: 'pendingMessages',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+});
+
+PendingMessage.belongsTo(Users, {
+    foreignKey: 'userId',
+    as: 'user',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+});
+
+// Sync database
+async function syncDatabase() {
+    try {
+        await sequelize.sync({ force: true });
+        console.log('Database synced successfully!');
+    } catch (error) {
+        console.error('Error syncing database:', error);
+    }
+}
+
+// Sync when module is imported
+syncDatabase();
+
 export default sequelize;

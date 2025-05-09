@@ -1,36 +1,39 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/database.js';
+import { v4 as uuidv4 } from 'uuid';
 
-const Users = sequelize.define('Users', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
-    userId: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    domain: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    license: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    createdAt: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
-    },
-    lastActivity: {
-        type: DataTypes.DATE,
-        allowNull: true
-    }
-}, {
-    tableName: 'users',
-    timestamps: false
-});
+export default function defineUsers(sequelize) {
+    const Users = sequelize.define('Users', {
+        id: {
+            type: DataTypes.UUID,
+            defaultValue: () => uuidv4(),
+            primaryKey: true
+        },
+        userId: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        domain: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        license: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        createdAt: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW
+        },
+        lastActivity: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW
+        }
+    }, {
+        tableName: 'users',
+        timestamps: false
+    });
 
-export default Users;
+    return Users;
+}

@@ -4,7 +4,7 @@ import http from 'http';
 import {Server} from 'socket.io';
 import path from 'path';
 import dotenv from 'dotenv';
-import './database.js';
+import './config/database.js';
 import PendingMessage from './models/PendingMessage.js';
 
 dotenv.config();
