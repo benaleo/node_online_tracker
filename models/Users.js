@@ -8,10 +8,6 @@ export default function defineUsers(sequelize) {
             defaultValue: () => uuidv4(),
             primaryKey: true
         },
-        userId: {
-            type: DataTypes.STRING,
-            allowNull: false
-        },
         domain: {
             type: DataTypes.STRING,
             allowNull: false
@@ -34,6 +30,18 @@ export default function defineUsers(sequelize) {
         tableName: 'users',
         timestamps: false
     });
+
+    Users.validateLicense = async function(license, domain) {
+        const user = await Users.findOne({
+            where: {
+                license,
+                domain
+            }
+        });
+        return !!user;
+    };
+
+    return Users;
 
     // Add static method for validation
     Users.validateLicense = async function(license, domain) {

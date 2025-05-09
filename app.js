@@ -45,7 +45,6 @@ function generateUserId(socket) {
     socket.handshake.headers["x-real-ip"] ||
     socket.handshake.address;
   console.log("Real IP:", ip);
-  const userAgent = socket.handshake.query.userAgent || "unknown";
   const userId = `${ip}`; // Using first part of userAgent to avoid too long IDs
   console.log("User ID:", userId);
   return userId;
@@ -76,7 +75,6 @@ async function validateLicense(license, domain) {
   try {
     return await Users.validateLicense(license, domain);
   } catch (error) {
-    console.error("Error validating license:", error);
     return false;
   }
 }
