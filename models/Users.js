@@ -51,15 +51,15 @@ export default function defineUsers(sequelize) {
         });
 
         if (user) {
-            console.log('User found:', {
-                userId: user.id,
-                domain: user.domain,
-                license: user.license,
-                isValid: user.isValid,
-                validUntil: user.validUntil,
-                createdAt: user.createdAt,
-                lastActivity: user.lastActivity
-            });
+            // console.log('User found:', {
+            //     userId: user.id,
+            //     domain: user.domain,
+            //     license: user.license,
+            //     isValid: user.isValid,
+            //     validUntil: user.validUntil,
+            //     createdAt: user.createdAt,
+            //     lastActivity: user.lastActivity
+            // });
             return user;
         } else {
             console.log('User not found');

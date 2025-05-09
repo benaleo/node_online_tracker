@@ -37,16 +37,13 @@ const activeUsers = new Map();
 const activeDomains = {};
 
 // Helper function to generate a unique user ID based on IP and userAgent
-function generateUserId(socket) {
+function generateIp(socket) {
   // Get the real IP address from request headers
   const ip =
     socket.handshake.headers["x-forwarded-for"] ||
     socket.handshake.headers["x-real-ip"] ||
     socket.handshake.address;
-  console.log("Real IP:", ip);
-  const userId = `${ip}`; // Using first part of userAgent to avoid too long IDs
-  console.log("User ID:", userId);
-  return userId;
+  return ip;
 }
 
 // Helper function to generate user Agent
@@ -126,7 +123,7 @@ io.on("connection", async (socket) => {
     }
 
     // Generate a unique user ID based on IP and user agent
-    const userId = generateUserId(socket);
+    const userId = generateIp(socket);
     const userAgent = generateUserAgent(socket);
     const connectionTime = new Date().toISOString();
 
@@ -172,7 +169,7 @@ io.on("connection", async (socket) => {
     socket.on("pageview", (data) => {
       // Process pageview with domain and license info
       const { path } = data;
-      const userId = generateUserId(socket);
+      const userId = generateIp(socket);
 
       // Update page tracking
       if (!activeDomains[domain].pages[path]) {
@@ -204,7 +201,7 @@ io.on("connection", async (socket) => {
 
     // User leaving
     socket.on("leave", (data) => {
-      const userId = generateUserId(socket);
+      const userId = generateIp(socket);
 
       if (activeDomains[domain]) {
         // Get current page of the user
@@ -247,7 +244,6 @@ io.on("connection", async (socket) => {
 // Endpoint API untuk mendapatkan jumlah user aktif
 app.get("/api/active-users", (req, res) => {
   const stats = getActiveStats();
-  console.log(stats);
 
   // Create a list of all users from all domains
   const allUsers = [];
