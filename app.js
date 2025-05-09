@@ -279,14 +279,24 @@ app.get("/", (req, res) => {
 // Helper function to save pending message
 async function savePendingMessage(userId, message) {
   try {
-    console.log("user_id is ", userId);
-    await PendingMessage.create({
-      userId: userId,
-      message: message,
-    }, {
-      transaction: sequelize.transaction()
-    });
-    return true;
+    // Create a transaction first
+    const transaction = await sequelize.transaction();
+    
+    try {
+      // Use the transaction in the create operation
+      await PendingMessage.create({
+        userId: userId,
+        message: message
+      }, { transaction });
+      
+      // If successful, commit the transaction
+      await transaction.commit();
+      return true;
+    } catch (error) {
+      // If failed, rollback the transaction
+      await transaction.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error("Error saving pending message:", error);
     return false;
@@ -353,9 +363,10 @@ app.get("/api/easter-egg", async (req, res) => {
   console.log("validUsers", validUsers);
 
   // Save pending messages for all active users
-  const pendingPromises = validUsers.map((user) =>
-    savePendingMessage(user.id, message)
-  );
+  const pendingPromises = validUsers.map((user) => {
+    console.log("user want to create message", user);
+    return savePendingMessage(user.id, message);
+  });
 
   await Promise.all(pendingPromises);
 
