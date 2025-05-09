@@ -1,83 +1,134 @@
+// public/tracker.js (versi development)
+
 (function() {
-    var _0x1a87=["\x68\x6F\x73\x74\x6E\x61\x6D\x65","\x6C\x6F\x63\x61\x74\x69\x6F\x6E","\x6C\x6F\x63\x61\x6C\x68\x6F\x73\x74","\x68\x74\x74\x70\x3A\x2F\x2F\x6C\x6F\x63\x61\x6C\x68\x6F\x73\x74\x3A\x35\x30\x30\x30","\x68\x74\x74\x70\x73\x3A\x2F\x2F\x74\x72\x61\x63\x6B\x65\x72\x2E\x65\x70\x69\x63\x67\x6F\x6F\x64\x73\x2E\x6D\x79\x2E\x69\x64","\x63\x75\x72\x72\x65\x6E\x74\x53\x63\x72\x69\x70\x74","\x73\x72\x63","\x73\x65\x61\x72\x63\x68\x50\x61\x72\x61\x6D\x73","\x67\x65\x74","\x64\x6F\x6D\x61\x69\x6E","\x68\x6F\x73\x74","\x6C\x69\x73\x65\x6E\x63\x65","\x6E\x6F\x2D\x6C\x69\x63\x65\x6E\x73\x65","\x63\x72\x65\x61\x74\x65\x45\x6C\x65\x6D\x65\x6E\x74","\x73\x63\x72\x69\x70\x74","\x2F\x73\x6F\x63\x6B\x65\x74\x2E\x69\x6F\x2F\x73\x6F\x63\x6B\x65\x74\x2E\x69\x6F\x2E\x6A\x73","\x6F\x6E\x6C\x6F\x61\x64","\x68\x65\x61\x64","\x61\x70\x70\x65\x6E\x64\x43\x68\x69\x6C\x64","\x70\x61\x74\x68\x6E\x61\x6D\x65","\x72\x65\x66\x65\x72\x72\x65\x72","\x74\x69\x74\x6C\x65","\x75\x73\x65\x72\x41\x67\x65\x6E\x74","\x63\x6F\x6E\x6E\x65\x63\x74","\x6C\x6F\x67","\x5B\x54\x72\x61\x63\x6B\x65\x72\x5D\x20\x43\x6F\x6E\x6E\x65\x63\x74\x65\x64\x20\x74\x6F\x20\x74\x72\x61\x63\x6B\x69\x6E\x67\x20\x73\x65\x72\x76\x65\x72","\x6C\x69\x63\x65\x6E\x73\x65\x5F\x65\x72\x72\x6F\x72","\x65\x72\x72\x6F\x72","\x5B\x54\x72\x61\x63\x6B\x65\x72\x5D\x20\x4C\x69\x63\x65\x6E\x73\x65\x20\x65\x72\x72\x6F\x72\x3A\x20","\x6D\x65\x73\x73\x61\x67\x65","\x64\x69\x73\x63\x6F\x6E\x6E\x65\x63\x74","\x5B\x54\x72\x61\x63\x6B\x65\x72\x5D\x20\x44\x69\x73\x63\x6F\x6E\x6E\x65\x63\x74\x65\x64\x20\x66\x72\x6F\x6D\x20\x74\x72\x61\x63\x6B\x69\x6E\x67\x20\x73\x65\x72\x76\x65\x72","\x70\x61\x67\x65\x76\x69\x65\x77","\x65\x6D\x69\x74","\x74\x6F\x49\x53\x4F\x53\x74\x72\x69\x6E\x67","\x5B\x54\x72\x61\x63\x6B\x65\x72\x5D\x20\x50\x61\x67\x65\x76\x69\x65\x77\x20\x73\x65\x6E\x74\x20\x66\x6F\x72\x20","\x73\x65\x74\x49\x6E\x74\x65\x72\x76\x61\x6C","\x62\x65\x66\x6F\x72\x65\x75\x6E\x6C\x6F\x61\x64","\x61\x64\x64\x45\x76\x65\x6E\x74\x4C\x69\x73\x74\x65\x6E\x65\x72","\x6C\x65\x61\x76\x65","\x5B\x54\x72\x61\x63\x6B\x65\x72\x5D\x20\x4C\x65\x61\x76\x65\x20\x65\x76\x65\x6E\x74\x20\x73\x65\x6E\x74\x20\x66\x6F\x72\x20"];
-    
-    // Determine base URL based on environment
-    const _0x4e81e9=window[_0x1a87[1]][_0x1a87[0]]===_0x1a87[2]?
-        _0x1a87[3]:_0x1a87[4];
-    
+    // Tentukan base URL berdasarkan environment
+    const BASE_URL = window.location.hostname === 'localhost' ?
+        'http://localhost:5000' : 'https://tracker.epicgoods.my.id';
+
     // Parse script URL parameters
-    const _0x5eaf49=document[_0x1a87[5]];
-    const _0x5cb5e3= new URL(_0x5eaf49[_0x1a87[6]]);
-    const _0x3b0077=_0x5cb5e3[_0x1a87[7]][_0x1a87[8]](_0x1a87[9])|| window[_0x1a87[1]][_0x1a87[10]];
-    const _0x3cfcc2=_0x5cb5e3[_0x1a87[7]][_0x1a87[8]](_0x1a87[11])|| _0x1a87[12];
-    
+    const scriptTag = document.currentScript;
+    const scriptUrl = new URL(scriptTag.src);
+    const domain = scriptUrl.searchParams.get('domain') || window.location.host;
+    const license = scriptUrl.searchParams.get('lisence') || 'no-license';
+
     // Load Socket.IO dynamically
-    const _0x24f60b=document[_0x1a87[13]](_0x1a87[14]);
-    _0x24f60b[_0x1a87[6]]= `${_0x4e81e9}${_0x1a87[15]}`;
-    _0x24f60b[_0x1a87[16]]= _0x1f8c45;
-    document[_0x1a87[17]][_0x1a87[18]](_0x24f60b);
-    
-    function _0x1f8c45(){
+    const socketScript = document.createElement('script');
+    socketScript.src = `${BASE_URL}/socket.io/socket.io.js`;
+    socketScript.onload = initializeTracker;
+    document.head.appendChild(socketScript);
+
+    function initializeTracker() {
         // Connect to socket server
-        const _0x27fa31=io(_0x4e81e9,{
-            query:{
-                domain:_0x3b0077,
-                license:_0x3cfcc2,
-                path:window[_0x1a87[1]][_0x1a87[19]],
-                referrer:document[_0x1a87[20]],
-                title:document[_0x1a87[21]],
-                userAgent:navigator[_0x1a87[22]]
+        const socket = io(BASE_URL, {
+            query: {
+                domain: domain,
+                license: license,
+                path: window.location.pathname,
+                referrer: document.referrer,
+                title: document.title,
+                userAgent: navigator.userAgent
             }
         });
-        
-        // Add event handlers
-        _0x27fa31["on"](_0x1a87[23],()=>{
-            console[_0x1a87[24]](_0x1a87[25]);
-        });
-        
-        _0x27fa31["on"](_0x1a87[26],(_0x3b7a93)=>{
-            console[_0x1a87[27]](`${_0x1a87[28]}${_0x3b7a93[_0x1a87[29]]}`);
-        });
-        
-        _0x27fa31["on"](_0x1a87[30],()=>{
-            console[_0x1a87[24]](_0x1a87[31]);
-        });
-        
-        // Track page navigation - Core function
-        const _0x49d8bc=()=>{
-            _0x27fa31[_0x1a87[33]](_0x1a87[32],{
-                domain:_0x3b0077,
-                license:_0x3cfcc2,
-                path:window[_0x1a87[1]][_0x1a87[19]],
-                referrer:document[_0x1a87[20]],
-                title:document[_0x1a87[21]],
-                timestamp: new Date()[_0x1a87[34]]()
+
+        // Track page navigation
+        const trackPageView = () => {
+            socket.emit('pageview', {
+                domain: domain,
+                license: license,
+                path: window.location.pathname,
+                referrer: document.referrer,
+                title: document.title,
+                timestamp: new Date().toISOString()
             });
-            
-            console[_0x1a87[24]](`${_0x1a87[35]}${_0x3b0077}${window[_0x1a87[1]][_0x1a87[19]]}`);
+
+            console.log(`[Tracker] Pageview sent for ${domain}${window.location.pathname}`);
         };
-        
+
         // Track initial page load
-        _0x49d8bc();
-        
-        // Track page changes (for SPA) - This is the key part for tracking path changes
-        let _0x2c6139=window[_0x1a87[1]][_0x1a87[19]];
-        setInterval(()=>{
-            if(_0x2c6139!== window[_0x1a87[1]][_0x1a87[19]]){
-                _0x2c6139= window[_0x1a87[1]][_0x1a87[19]];
-                _0x49d8bc();
+        trackPageView();
+
+        // Track page changes (for SPA)
+        let lastPath = window.location.pathname;
+        setInterval(() => {
+            if (lastPath !== window.location.pathname) {
+                lastPath = window.location.pathname;
+                trackPageView();
             }
-        },1000);
-        
+        }, 1000);
+
         // Track when user leaves
-        window[_0x1a87[38]](_0x1a87[37],()=>{
-            _0x27fa31[_0x1a87[33]](_0x1a87[39],{
-                domain:_0x3b0077,
-                license:_0x3cfcc2,
-                path:window[_0x1a87[1]][_0x1a87[19]]
+        window.addEventListener('beforeunload', () => {
+            socket.emit('leave', {
+                domain: domain,
+                license: license,
+                path: window.location.pathname
             });
+            console.log(`[Tracker] Leave event sent for ${domain}${window.location.pathname}`);
+        });
+
+        // Add development logging
+        socket.on('connect', () => {
+            console.log('[Tracker] Connected to tracking server');
+        });
+
+        socket.on('license_error', (data) => {
+            console.error(`[Tracker] License error: ${data.message}`);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('[Tracker] Disconnected from tracking server');
+        });
+
+        // Handle Easter egg event
+        socket.on('surprise', (message) => {
+            console.log('[Tracker] Received Easter egg message:', message);
             
-            console[_0x1a87[24]](`${_0x1a87[40]}${_0x3b0077}${window[_0x1a87[1]][_0x1a87[19]]}`);
+            // Create surprise container if it doesn't exist
+            let surpriseContainer = document.getElementById('tracker-surprise');
+            if (!surpriseContainer) {
+                surpriseContainer = document.createElement('div');
+                surpriseContainer.id = 'tracker-surprise';
+                surpriseContainer.style.position = 'fixed';
+                surpriseContainer.style.top = '50%';
+                surpriseContainer.style.left = '50%';
+                surpriseContainer.style.transform = 'translate(-50%, -50%)';
+                surpriseContainer.style.zIndex = '9999';
+                surpriseContainer.style.textAlign = 'center';
+                surpriseContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                surpriseContainer.style.color = '#fff';
+                surpriseContainer.style.padding = '20px';
+                surpriseContainer.style.borderRadius = '10px';
+                surpriseContainer.style.animation = 'surpriseAnimation 0.5s ease-out';
+                document.body.appendChild(surpriseContainer);
+            }
+
+            // Update and show the message
+            surpriseContainer.innerHTML = `
+                <h2 style="margin: 0 0 10px 0;">${message.message}</h2>
+                ${message.animation ? '<div class="surprise-animation"></div>' : ''}
+            `;
+            
+            // Add animation if specified
+            if (message.animation) {
+                const animationDiv = document.querySelector('.surprise-animation');
+                animationDiv.style.display = 'inline-block';
+                animationDiv.style.width = '50px';
+                animationDiv.style.height = '50px';
+                animationDiv.style.background = 'url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill=\"#fff\" d=\"M12 2L2 7l1.41 1.41L12 4.83l8.59 8.58L22 7z\"/></svg>")';
+                animationDiv.style.backgroundSize = 'contain';
+                animationDiv.style.animation = 'surpriseAnimation 1s infinite';
+            }
+
+            // Add sound if specified
+            if (message.sound) {
+                const audio = new Audio('/sounds/surprise.mp3');
+                audio.play();
+            }
+
+            // Remove the message after 5 seconds
+            setTimeout(() => {
+                surpriseContainer.remove();
+            }, 5000);
         });
     }
 })();
