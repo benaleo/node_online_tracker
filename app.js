@@ -6,7 +6,7 @@ import path from "path";
 import dotenv from "dotenv";
 import "./config/database.js";
 import PendingMessage from "./models/PendingMessage.js";
-import Users from "./models/Users.js";
+import { Users } from "./config/database.js";
 
 dotenv.config();
 
@@ -67,14 +67,37 @@ function getActiveStats() {
 }
 
 // Validasi license
+let errMessageNotValid = "";
 async function validateLicense(license, domain) {
   if (process.env.NODE_ENV === "development" || license === "premium") {
     return true; // Izinkan semua untuk development
   }
 
   try {
-    return await Users.validateLicense(license, domain);
+    const user = await Users.validateLicense(license, domain);
+
+    if (!user) {
+      errMessageNotValid = "No user found for domain: " + domain;
+      console.log("Invalid license: " + errMessageNotValid);
+      return false;
+    }
+
+    if (!user.isValid) {
+      errMessageNotValid = "User is not valid for domain: " + domain;
+      console.log("Invalid license: " + errMessageNotValid);
+      return false;
+    }
+
+    if (user.validUntil < new Date()) {
+      errMessageNotValid = "License has expired for domain: " + domain;
+      console.log("Invalid license: " + errMessageNotValid);
+      return false;
+    }
+
+    console.log("License validation successful for domain:", domain);
+    return true;
   } catch (error) {
+    console.error("Error validating license:", error);
     return false;
   }
 }
@@ -97,7 +120,7 @@ io.on("connection", async (socket) => {
     if (!isValid) {
       console.log(`Invalid license: ${license} for domain: ${domain}`);
       socket.emit("license_error", {
-        message: "Invalid license for this domain",
+        message: errMessageNotValid,
       });
       socket.disconnect(true);
       return;

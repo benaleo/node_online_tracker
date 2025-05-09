@@ -1,4 +1,4 @@
-import { DataTypes } from 'sequelize';
+import { DataTypes, Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function defineUsers(sequelize) {
@@ -14,6 +14,15 @@ export default function defineUsers(sequelize) {
         },
         license: {
             type: DataTypes.STRING,
+            allowNull: false
+        },
+        isValid: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: true
+        },
+        validUntil: {
+            type: DataTypes.DATE,
             allowNull: false
         },
         createdAt: {
@@ -32,13 +41,30 @@ export default function defineUsers(sequelize) {
     });
 
     Users.validateLicense = async function(license, domain) {
+        console.log(`Checking user for domain: ${domain}, license: ${license}`);
+        
         const user = await Users.findOne({
             where: {
                 license,
                 domain
             }
         });
-        return !!user;
+
+        if (user) {
+            console.log('User found:', {
+                userId: user.id,
+                domain: user.domain,
+                license: user.license,
+                isValid: user.isValid,
+                validUntil: user.validUntil,
+                createdAt: user.createdAt,
+                lastActivity: user.lastActivity
+            });
+            return user;
+        } else {
+            console.log('User not found');
+            return null;
+        }
     };
 
     return Users;
