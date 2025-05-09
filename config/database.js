@@ -19,9 +19,6 @@ const sequelize = new Sequelize({
 const Users = (await import('../models/Users.js')).default(sequelize);
 const PendingMessage = (await import('../models/PendingMessage.js')).default(sequelize);
 
-// Export models
-export { Users, PendingMessage };
-
 // Define associations
 Users.hasMany(PendingMessage, {
     foreignKey: 'userId',
@@ -40,7 +37,7 @@ PendingMessage.belongsTo(Users, {
 // Sync database
 async function syncDatabase() {
     try {
-        await sequelize.sync({ force: false });
+        await sequelize.sync({ force: true });
         console.log('Database synced successfully!');
     } catch (error) {
         console.error('Error syncing database:', error);
@@ -50,4 +47,5 @@ async function syncDatabase() {
 // Sync when module is imported
 syncDatabase();
 
-export default sequelize;
+// Export models and sequelize instance
+export { Users, PendingMessage, sequelize };

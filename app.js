@@ -4,9 +4,8 @@ import http from "http";
 import { Server } from "socket.io";
 import path from "path";
 import dotenv from "dotenv";
-import "./config/database.js";
-import PendingMessage from "./models/PendingMessage.js";
-import { Users } from "./config/database.js";
+import { Users, PendingMessage, sequelize } from "./config/database.js";
+import { Op } from "sequelize";
 
 dotenv.config();
 
@@ -248,6 +247,7 @@ io.on("connection", async (socket) => {
 // Endpoint API untuk mendapatkan jumlah user aktif
 app.get("/api/active-users", (req, res) => {
   const stats = getActiveStats();
+  console.log(stats);
 
   // Create a list of all users from all domains
   const allUsers = [];
@@ -279,9 +279,12 @@ app.get("/", (req, res) => {
 // Helper function to save pending message
 async function savePendingMessage(userId, message) {
   try {
+    console.log("user_id is ", userId);
     await PendingMessage.create({
-      userId,
-      message,
+      userId: userId,
+      message: message,
+    }, {
+      transaction: sequelize.transaction()
     });
     return true;
   } catch (error) {
@@ -293,20 +296,29 @@ async function savePendingMessage(userId, message) {
 // Helper function to get and mark pending messages as sent
 async function getAndMarkPendingMessages(userId) {
   try {
-    const pendingMessages = await PendingMessage.findAll({
-      where: {
-        userId,
-        sentAt: null,
-      },
-    });
+    const t = await sequelize.transaction();
+    
+    try {
+      const pendingMessages = await PendingMessage.findAll({
+        where: {
+          userId,
+          sentAt: null,
+        },
+        transaction: t
+      });
 
-    // Mark messages as sent
-    const now = new Date();
-    await Promise.all(
-      pendingMessages.map((msg) => msg.update({ sentAt: now }))
-    );
+      // Mark messages as sent
+      const now = new Date();
+      await Promise.all(
+        pendingMessages.map((msg) => msg.update({ sentAt: now }, { transaction: t }))
+      );
 
-    return pendingMessages;
+      await t.commit();
+      return pendingMessages;
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error("Error getting pending messages:", error);
     return [];
@@ -323,10 +335,26 @@ app.get("/api/easter-egg", async (req, res) => {
   // Emit to all connected users
   io.emit("surprise", message);
 
+  const activeDomainList = Object.keys(getActiveStats().domains);
+  console.log("activeDomainList", activeDomainList);
+
+  // get all users valid
+  const validUsers = await Users.findAll({
+    where: {
+      isValid: true,
+      validUntil: {
+        [Op.gte]: new Date(),
+      },
+      domain: {
+        [Op.notIn]: activeDomainList,
+      },
+    }
+  });
+  console.log("validUsers", validUsers);
+
   // Save pending messages for all active users
-  const activeUsersArray = Array.from(activeUsers.values());
-  const pendingPromises = activeUsersArray.map((user) =>
-    savePendingMessage(user.userId, message)
+  const pendingPromises = validUsers.map((user) =>
+    savePendingMessage(user.id, message)
   );
 
   await Promise.all(pendingPromises);
