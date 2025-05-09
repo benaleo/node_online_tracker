@@ -158,6 +158,9 @@ io.on("connection", async (socket) => {
 
       // Update connected clients immediately
       io.emit("userCountUpdate", getActiveStats());
+      
+      // Check for pending messages for this user
+      checkAndSendPendingMessages(userId, socket);
     } else {
       // Just update the path and last activity for existing users
       activeDomains[domain].userDetails[userId].page = path;
@@ -296,6 +299,68 @@ async function savePendingMessage(userId, message) {
   } catch (error) {
     console.error("Error saving pending message:", error);
     return false;
+  }
+}
+
+// Helper function to check and send pending messages to a user
+async function checkAndSendPendingMessages(userId, socket) {
+  try {
+    // Find the user in our database to get their UUID
+    const domain = socket.handshake.query.domain;
+    const license = socket.handshake.query.license;
+    
+    if (!domain || !license) return;
+    
+    const user = await Users.findOne({
+      where: {
+        domain: domain,
+        license: license
+      }
+    });
+    
+    if (!user) return;
+    
+    // Now we have the user's UUID, we can check for pending messages
+    const transaction = await sequelize.transaction();
+    
+    try {
+      const pendingMessages = await PendingMessage.findAll({
+        where: {
+          userId: user.id,
+          sentAt: null
+        },
+        transaction: transaction
+      });
+      
+      // If we have pending messages, update them and send to the user
+      if (pendingMessages && pendingMessages.length > 0) {
+        console.log(`Found ${pendingMessages.length} pending messages for user ${user.id}`);
+        
+        // Mark messages as read
+        const now = new Date();
+        await Promise.all(
+          pendingMessages.map(msg => msg.update({ sentAt: now }, { transaction }))
+        );
+        
+        // Send the easter egg message to this specific user
+        socket.emit("surprise", {
+          message: "🎉 Surprise! Telah ditemukan easter egg!",
+          animation: true,
+          sound: true,
+          pendingMessages: pendingMessages.map(msg => msg.message),
+          count: pendingMessages.length
+        });
+        
+        console.log(`Sent pending messages to user ${user.id}`);
+      }
+      
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      console.error(`Error processing pending messages for user ${userId}:`, error);
+    }
+  } catch (error) {
+    console.error(`Error checking pending messages for user ${userId}:`, error);
   }
 }
 
