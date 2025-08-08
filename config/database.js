@@ -1,5 +1,6 @@
-const { Sequelize } = require('sequelize');
-require('dotenv').config();
+import { Sequelize } from 'sequelize';
+import dotenv from 'dotenv';
+dotenv.config();
 
 let sequelize;
 
@@ -52,8 +53,11 @@ if (process.env.DATABASE_URL) {
 }
 
 // Initialize models
-const Users = require('../models/Users')(sequelize);
-const PendingMessage = require('../models/PendingMessage')(sequelize);
+import defineUsers from '../models/Users.js';
+import definePendingMessage from '../models/PendingMessage.js';
+
+const Users = defineUsers(sequelize);
+const PendingMessage = definePendingMessage(sequelize);
 
 // Define associations
 Users.hasMany(PendingMessage, {
@@ -99,7 +103,7 @@ async function syncDatabase() {
 })();
 
 // Export models and sequelize instance
-module.exports = {
+export {
     Users,
     PendingMessage,
     sequelize,
