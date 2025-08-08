@@ -1,23 +1,59 @@
-import { Sequelize } from 'sequelize';
-import dotenv from 'dotenv';
-dotenv.config();
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
-const sequelize = new Sequelize({
-    dialect: 'mysql',
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'node_tracker',
-    logging: false,
-    define: {
-        timestamps: true
-    }
-});
+let sequelize;
+
+if (process.env.DATABASE_URL) {
+    // For production with connection string
+    sequelize = new Sequelize(process.env.DATABASE_URL, {
+        dialect: 'postgres',
+        protocol: 'postgres',
+        logging: process.env.NODE_ENV === 'development' ? console.log : false,
+        define: {
+            timestamps: true,
+            underscored: true,
+        },
+        dialectOptions: {
+            ssl: {
+                require: true,
+                rejectUnauthorized: false
+            }
+        },
+        pool: {
+            max: 5,
+            min: 0,
+            acquire: 30000,
+            idle: 10000
+        }
+    });
+} else {
+    // For local development
+    sequelize = new Sequelize(
+        process.env.DB_NAME || 'node_tracker',
+        process.env.DB_USER || 'postgres',
+        process.env.DB_PASSWORD || '',
+        {
+            host: process.env.DB_HOST || 'localhost',
+            port: process.env.DB_PORT || 5432,
+            dialect: 'postgres',
+            logging: process.env.NODE_ENV === 'development' ? console.log : false,
+            define: {
+                timestamps: true,
+                underscored: true,
+            },
+            pool: {
+                max: 5,
+                min: 0,
+                acquire: 30000,
+                idle: 10000
+            }
+        }
+    );
+}
 
 // Initialize models
-const Users = (await import('../models/Users.js')).default(sequelize);
-const PendingMessage = (await import('../models/PendingMessage.js')).default(sequelize);
+const Users = require('../models/Users')(sequelize);
+const PendingMessage = require('../models/PendingMessage')(sequelize);
 
 // Define associations
 Users.hasMany(PendingMessage, {
@@ -34,6 +70,17 @@ PendingMessage.belongsTo(Users, {
     onUpdate: 'CASCADE'
 });
 
+// Test connection
+async function testConnection() {
+    try {
+        await sequelize.authenticate();
+        console.log('Database connection has been established successfully.');
+    } catch (error) {
+        console.error('Unable to connect to the database:', error);
+        process.exit(1);
+    }
+}
+
 // Sync database
 async function syncDatabase() {
     try {
@@ -41,11 +88,21 @@ async function syncDatabase() {
         console.log('Database synced successfully!');
     } catch (error) {
         console.error('Error syncing database:', error);
+        process.exit(1);
     }
 }
 
-// Sync when module is imported
-syncDatabase();
+// Test and sync database
+(async () => {
+    await testConnection();
+    await syncDatabase();
+})();
 
 // Export models and sequelize instance
-export { Users, PendingMessage, sequelize };
+module.exports = {
+    Users,
+    PendingMessage,
+    sequelize,
+    testConnection,
+    syncDatabase
+};
